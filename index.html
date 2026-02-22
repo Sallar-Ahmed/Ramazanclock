@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramadan Clock 1447</title>
+<link href="https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;700&family=DM+Mono:wght@300;400;500&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c87a;
+    --gold-dim: #7a5e28;
+    --night: #0a0c14;
+    --night2: #0f1220;
+    --text: #f0e8d5;
+    --text-dim: #8a7d64;
+    --sehri: #4a90d9;
+    --iftar: #e07b39;
+    --arc-bg: rgba(201,168,76,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--night);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Stars */
+  .stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle var(--dur) ease-in-out infinite alternate;
+  }
+  @keyframes twinkle {
+    from { opacity: var(--min-op); }
+    to { opacity: var(--max-op); }
+  }
+
+  /* Geometric border */
+  .border-frame {
+    position: fixed;
+    inset: 16px;
+    border: 1px solid var(--gold-dim);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .border-frame::before, .border-frame::after {
+    content: '✦';
+    position: absolute;
+    color: var(--gold);
+    font-size: 14px;
+  }
+  .border-frame::before { top: -8px; left: 50%; transform: translateX(-50%); }
+  .border-frame::after { bottom: -8px; left: 50%; transform: translateX(-50%); }
+  .corner {
+    position: absolute;
+    width: 20px; height: 20px;
+    border-color: var(--gold);
+    border-style: solid;
+  }
+  .corner.tl { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    padding: 32px 24px;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+  }
+  .arabic-title {
+    font-family: 'Scheherazade New', serif;
+    font-size: 2.8rem;
+    color: var(--gold);
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+  .sub-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: var(--text-dim);
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  /* Day badge */
+  .day-badge {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .day-num {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .day-num span {
+    display: block;
+    font-size: 1.6rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--gold);
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+  .divider-v {
+    width: 1px;
+    height: 36px;
+    background: var(--gold-dim);
+  }
+
+  /* Clock SVG */
+  .clock-wrap {
+    position: relative;
+    width: 260px;
+    height: 260px;
+  }
+  .clock-wrap svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+  .clock-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .event-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .event-label.sehri { color: var(--sehri); }
+  .event-label.iftar { color: var(--iftar); }
+
+  .time-display {
+    font-size: 2.2rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  .time-display.sehri { color: #a8c8f0; }
+  .time-display.iftar { color: #f0b87a; }
+
+  .time-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* Event times row */
+  .events-row {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    border: 1px solid var(--gold-dim);
+  }
+  .event-box {
+    flex: 1;
+    padding: 14px 16px;
+    text-align: center;
+    position: relative;
+  }
+  .event-box:first-child {
+    border-right: 1px solid var(--gold-dim);
+  }
+  .event-box.active {
+    background: rgba(201,168,76,0.05);
+  }
+  .event-box .e-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .event-box.sehri-box .e-label { color: var(--sehri); }
+  .event-box.iftar-box .e-label { color: var(--iftar); }
+  .event-box .e-time {
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+  }
+  .event-box.sehri-box .e-time { color: #a8c8f0; }
+  .event-box.iftar-box .e-time { color: #f0b87a; }
+  .active-dot {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* Progress bar */
+  .progress-section {
+    width: 100%;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .progress-bar {
+    width: 100%;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    position: relative;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    transition: width 1s linear;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: inherit;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .progress-fill.sehri { background: var(--sehri); }
+  .progress-fill.iftar { background: var(--iftar); }
+
+  /* 28-day view */
+  .schedule-toggle {
+    font-family: 'Cinzel', serif;
+    font-size: 0.58rem;
+    letter-spacing: 0.25em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    background: none;
+    padding: 6px 12px;
+    border: 1px solid var(--gold-dim);
+    color: var(--gold-dim);
+    transition: all 0.3s;
+  }
+  .schedule-toggle:hover { border-color: var(--gold); color: var(--gold); }
+
+  .schedule-panel {
+    width: 100%;
+    display: none;
+    border: 1px solid var(--gold-dim);
+    max-height: 240px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gold-dim) transparent;
+  }
+  .schedule-panel.open { display: block; }
+
+  .sch-header {
+    display: grid;
+    grid-template-columns: 36px 1fr 70px 70px;
+    padding: 8px 12px;
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--gold-dim);
+    position: sticky;
+    top: 0;
+    background: var(--night2);
+  }
+  .sch-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 70px 70px;
+    padding: 8px 12px;
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(201,168,76,0.06);
+    transition: background 0.2s;
+    align-items: center;
+  }
+  .sch-row:hover { background: rgba(201,168,76,0.04); }
+  .sch-row.today {
+    background: rgba(201,168,76,0.08);
+  }
+  .sch-row.today .day-n { color: var(--gold); font-weight: 500; }
+  .sch-row .sehri-t { color: #a8c8f0; }
+  .sch-row .iftar-t { color: #f0b87a; }
+  .sch-row .date-t { color: var(--text-dim); font-size: 0.55rem; }
+
+  .ornament {
+    color: var(--gold-dim);
+    font-size: 0.7rem;
+    letter-spacing: 0.5em;
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="border-frame">
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+</div>
+
+<div class="container">
+  <div class="header">
+    <div class="arabic-title">رمضان ١٤٤٧</div>
+    <div class="sub-title">Ramadan 1447 · Prayer Tracker</div>
+  </div>
+
+  <div class="day-badge">
+    <div class="day-num">DAY <span id="day-num">—</span></div>
+    <div class="divider-v"></div>
+    <div class="day-num">DATE <span id="day-date" style="font-size:0.9rem">—</span></div>
+  </div>
+
+  <div class="clock-wrap">
+    <svg viewBox="0 0 260 260" fill="none">
+      <!-- Track -->
+      <circle cx="130" cy="130" r="110" stroke="rgba(201,168,76,0.1)" stroke-width="12"/>
+      <!-- Arc -->
+      <circle id="arc" cx="130" cy="130" r="110"
+        stroke="#c9a84c" stroke-width="12"
+        stroke-linecap="round"
+        stroke-dasharray="691.15"
+        stroke-dashoffset="691.15"
+        style="transition: stroke-dashoffset 1s linear;"/>
+      <!-- Inner ring -->
+      <circle cx="130" cy="130" r="96" stroke="rgba(201,168,76,0.05)" stroke-width="1"/>
+    </svg>
+    <div class="clock-center">
+      <div class="event-label" id="event-label">—</div>
+      <div class="time-display" id="countdown">--:--:--</div>
+      <div class="time-label">TIME REMAINING</div>
+    </div>
+  </div>
+
+  <div class="events-row">
+    <div class="event-box sehri-box" id="sehri-box">
+      <div class="e-label">Sehri</div>
+      <div class="e-time" id="sehri-time">—</div>
+    </div>
+    <div class="event-box iftar-box" id="iftar-box">
+      <div class="e-label">Iftar</div>
+      <div class="e-time" id="iftar-time">—</div>
+      <div class="active-dot" id="active-dot" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-label">
+      <span id="prog-from">—</span>
+      <span id="prog-pct">0%</span>
+      <span id="prog-to">—</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="ornament">· · ✦ · ·</div>
+
+  <button class="schedule-toggle" onclick="toggleSchedule()">
+    ☽ Full 28-Day Schedule
+  </button>
+
+  <div class="schedule-panel" id="schedule-panel">
+    <div class="sch-header">
+      <span>#</span>
+      <span>Date</span>
+      <span>Sehri</span>
+      <span>Iftar</span>
+    </div>
+    <div id="schedule-rows"></div>
+  </div>
+</div>
+
+<script>
+// Full 28-day schedule
+const schedule = [
+  { day:1,  date:"19 Feb 2026", sehri:"05:24 AM", iftar:"5:56 PM" },
+  { day:2,  date:"20 Feb 2026", sehri:"05:23 AM", iftar:"5:57 PM" },
+  { day:3,  date:"21 Feb 2026", sehri:"05:22 AM", iftar:"5:58 PM" },
+  { day:4,  date:"22 Feb 2026", sehri:"05:21 AM", iftar:"5:59 PM" },
+  { day:5,  date:"23 Feb 2026", sehri:"05:20 AM", iftar:"6:00 PM" },
+  { day:6,  date:"24 Feb 2026", sehri:"05:19 AM", iftar:"6:01 PM" },
+  { day:7,  date:"25 Feb 2026", sehri:"05:18 AM", iftar:"6:02 PM" },
+  { day:8,  date:"26 Feb 2026", sehri:"05:16 AM", iftar:"6:03 PM" },
+  { day:9,  date:"27 Feb 2026", sehri:"05:15 AM", iftar:"6:03 PM" },
+  { day:10, date:"28 Feb 2026", sehri:"05:14 AM", iftar:"6:04 PM" },
+  { day:11, date:"01 Mar 2026", sehri:"05:12 AM", iftar:"6:05 PM" },
+  { day:12, date:"02 Mar 2026", sehri:"05:11 AM", iftar:"6:06 PM" },
+  { day:13, date:"03 Mar 2026", sehri:"05:09 AM", iftar:"6:07 PM" },
+  { day:14, date:"04 Mar 2026", sehri:"05:08 AM", iftar:"6:08 PM" },
+  { day:15, date:"05 Mar 2026", sehri:"05:06 AM", iftar:"6:09 PM" },
+  { day:16, date:"06 Mar 2026", sehri:"05:05 AM", iftar:"6:10 PM" },
+  { day:17, date:"07 Mar 2026", sehri:"05:03 AM", iftar:"6:11 PM" },
+  { day:18, date:"08 Mar 2026", sehri:"05:01 AM", iftar:"6:12 PM" },
+  { day:19, date:"09 Mar 2026", sehri:"05:00 AM", iftar:"6:13 PM" },
+  { day:20, date:"10 Mar 2026", sehri:"04:58 AM", iftar:"6:14 PM" },
+  { day:21, date:"11 Mar 2026", sehri:"04:56 AM", iftar:"6:15 PM" },
+  { day:22, date:"12 Mar 2026", sehri:"04:54 AM", iftar:"6:15 PM" },
+  { day:23, date:"13 Mar 2026", sehri:"04:53 AM", iftar:"6:16 PM" },
+  { day:24, date:"14 Mar 2026", sehri:"04:51 AM", iftar:"6:17 PM" },
+  { day:25, date:"15 Mar 2026", sehri:"04:49 AM", iftar:"6:18 PM" },
+  { day:26, date:"16 Mar 2026", sehri:"04:47 AM", iftar:"6:18 PM" },
+  { day:27, date:"17 Mar 2026", sehri:"04:45 AM", iftar:"6:19 PM" },
+  { day:28, date:"18 Mar 2026", sehri:"04:44 AM", iftar:"6:20 PM" },
+  { day:29, date:"19 Mar 2026", sehri:"04:42 AM", iftar:"6:20 PM" },
+  { day:30, date:"20 Mar 2026", sehri:"04:48 AM", iftar:"6:20 PM" },
+];
+
+function parseTime(str, refDate) {
+  const [time, period] = str.trim().split(' ');
+  let [h, m] = time.split(':').map(Number);
+  if (period === 'PM' && h !== 12) h += 12;
+  if (period === 'AM' && h === 12) h = 0;
+  const d = new Date(refDate);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+function parseDateStr(str) {
+  return new Date(str + ' 00:00:00');
+}
+
+function getToday() {
+  const now = new Date();
+  // find matching schedule entry
+  for (let i = 0; i < schedule.length; i++) {
+    const d = parseDateStr(schedule[i].date);
+    if (d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()) {
+      return i;
+    }
+  }
+  return null;
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function formatCountdown(ms) {
+  if (ms <= 0) return '00:00:00';
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${pad2(h)}:${pad2(m)}:${pad2(sec)}`;
+}
+
+const arc = document.getElementById('arc');
+const CIRCUMFERENCE = 2 * Math.PI * 110;
+
+function setArc(fraction, type) {
+  const offset = CIRCUMFERENCE * (1 - fraction);
+  arc.style.strokeDashoffset = offset;
+  arc.style.stroke = type === 'sehri' ? '#4a90d9' : '#e07b39';
+}
+
+function buildScheduleRows(todayIdx) {
+  const container = document.getElementById('schedule-rows');
+  container.innerHTML = '';
+  schedule.forEach((row, i) => {
+    const div = document.createElement('div');
+    div.className = 'sch-row' + (i === todayIdx ? ' today' : '');
+    div.innerHTML = `<span class="day-n">${row.day}</span>
+      <span class="date-t">${row.date}</span>
+      <span class="sehri-t">${row.sehri}</span>
+      <span class="iftar-t">${row.iftar}</span>`;
+    container.appendChild(div);
+  });
+}
+
+function tick() {
+  const now = new Date();
+  const idx = getToday();
+
+  if (idx === null) {
+    document.getElementById('countdown').textContent = 'Outside Ramadan';
+    document.getElementById('event-label').textContent = '';
+    document.getElementById('day-num').textContent = '—';
+    document.getElementById('day-date').textContent = '—';
+    return;
+  }
+
+  const row = schedule[idx];
+  document.getElementById('day-num').textContent = row.day;
+  document.getElementById('day-date').textContent = row.date;
+  document.getElementById('sehri-time').textContent = row.sehri;
+  document.getElementById('iftar-time').textContent = row.iftar;
+
+  const sehriTime = parseTime(row.sehri, now);
+  const iftarTime = parseTime(row.iftar, now);
+
+  const label = document.getElementById('event-label');
+  const countdown = document.getElementById('countdown');
+  const progFill = document.getElementById('prog-fill');
+  const progFrom = document.getElementById('prog-from');
+  const progTo = document.getElementById('prog-to');
+  const progPct = document.getElementById('prog-pct');
+  const dot = document.getElementById('active-dot');
+
+  let type, msLeft, start, end;
+
+  if (now < sehriTime) {
+    // Before sehri: overnight window — time until sehri
+    // start from midnight
+    const midnight = new Date(now); midnight.setHours(0,0,0,0);
+    type = 'sehri';
+    start = midnight;
+    end = sehriTime;
+    msLeft = sehriTime - now;
+    label.textContent = 'Until Sehri';
+    label.className = 'event-label sehri';
+    countdown.className = 'time-display sehri';
+  } else if (now < iftarTime) {
+    // Between sehri and iftar: countdown to iftar
+    type = 'iftar';
+    start = sehriTime;
+    end = iftarTime;
+    msLeft = iftarTime - now;
+    label.textContent = 'Until Iftar';
+    label.className = 'event-label iftar';
+    countdown.className = 'time-display iftar';
+  } else {
+    // After iftar: countdown to next day sehri
+    const nextIdx = idx + 1 < schedule.length ? idx + 1 : idx;
+    const nextRow = schedule[nextIdx];
+    const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextSehri = parseTime(nextRow.sehri, tomorrow);
+    type = 'sehri';
+    start = iftarTime;
+    end = nextSehri;
+    msLeft = nextSehri - now;
+    label.textContent = 'Until Sehri';
+    label.className = 'event-label sehri';
+    countdown.className = 'time-display sehri';
+  }
+
+  countdown.textContent = formatCountdown(msLeft);
+
+  const total = end - start;
+  const elapsed = now - start;
+  const fraction = Math.min(1, Math.max(0, elapsed / total));
+  setArc(fraction, type);
+
+  const pct = Math.round(fraction * 100);
+  progFill.style.width = pct + '%';
+  progFill.className = 'progress-fill ' + type;
+  progFrom.textContent = type === 'iftar' ? row.sehri : 'Iftar';
+  progTo.textContent = type === 'iftar' ? row.iftar : 'Sehri ↑';
+  progPct.textContent = pct + '%';
+
+  // Active box highlight
+  document.getElementById('sehri-box').classList.toggle('active', type === 'sehri');
+  document.getElementById('iftar-box').classList.toggle('active', type === 'iftar');
+  dot.style.display = type === 'iftar' ? 'block' : 'none';
+  document.getElementById('sehri-box').querySelector('.active-dot') && 
+    (document.getElementById('sehri-box').querySelector('.active-dot').style.display = type === 'sehri' ? 'block' : 'none');
+}
+
+// Add sehri active dot
+const sehriBox = document.getElementById('sehri-box');
+const sd = document.createElement('div');
+sd.className = 'active-dot';
+sd.style.display = 'none';
+sehriBox.appendChild(sd);
+
+function toggleSchedule() {
+  const panel = document.getElementById('schedule-panel');
+  panel.classList.toggle('open');
+}
+
+// Stars
+function createStars() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    const size = Math.random() * 2 + 0.5;
+    star.style.cssText = `
+      width: ${size}px; height: ${size}px;
+      top: ${Math.random() * 100}%;
+      left: ${Math.random() * 100}%;
+      --dur: ${(Math.random() * 3 + 2).toFixed(1)}s;
+      --min-op: ${(Math.random() * 0.2 + 0.05).toFixed(2)};
+      --max-op: ${(Math.random() * 0.5 + 0.3).toFixed(2)};
+    `;
+    container.appendChild(star);
+  }
+}
+
+createStars();
+buildScheduleRows(getToday());
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
