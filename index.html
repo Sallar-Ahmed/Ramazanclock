@@ -271,24 +271,49 @@
   .progress-fill.iftar { background: var(--iftar); }
 
   /* 28-day view */
-  .schedule-toggle {
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .schedule-toggle, .notif-btn {
     font-family: 'Cinzel', serif;
     font-size: 0.58rem;
     letter-spacing: 0.25em;
-    color: var(--text-dim);
     text-transform: uppercase;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
-    border: none;
     background: none;
     padding: 6px 12px;
     border: 1px solid var(--gold-dim);
     color: var(--gold-dim);
     transition: all 0.3s;
   }
-  .schedule-toggle:hover { border-color: var(--gold); color: var(--gold); }
+  .schedule-toggle:hover, .notif-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .notif-btn.enabled { border-color: #5cba7d; color: #5cba7d; }
+  .notif-btn.denied { border-color: #c0392b; color: #c0392b; cursor: not-allowed; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--night2);
+    border: 1px solid var(--gold-dim);
+    color: var(--text);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    padding: 10px 20px;
+    z-index: 999;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s;
+    opacity: 0;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
   .schedule-panel {
     width: 100%;
@@ -408,9 +433,12 @@
 
   <div class="ornament">· · ✦ · ·</div>
 
-  <button class="schedule-toggle" onclick="toggleSchedule()">
-    ☽ Full 28-Day Schedule
-  </button>
+  <div class="btn-row">
+    <button class="schedule-toggle" onclick="toggleSchedule()">☽ 28-Day Schedule</button>
+    <button class="notif-btn" id="notif-btn" onclick="requestNotifications()">🔔 Enable Alerts</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
 
   <div class="schedule-panel" id="schedule-panel">
     <div class="sch-header">
@@ -639,10 +667,117 @@ function createStars() {
   }
 }
 
+// ── Notifications ──────────────────────────────────────────
+const NOTIF_LEAD = 30 * 60 * 1000; // 30 minutes in ms
+const notifFired = new Set(); // track which alerts were sent this session
+
+function showToast(msg, duration = 3500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function updateNotifBtn(state) {
+  const btn = document.getElementById('notif-btn');
+  if (state === 'granted') {
+    btn.textContent = '🔔 Alerts On';
+    btn.className = 'notif-btn enabled';
+  } else if (state === 'denied') {
+    btn.textContent = '🔕 Blocked';
+    btn.className = 'notif-btn denied';
+  } else {
+    btn.textContent = '🔔 Enable Alerts';
+    btn.className = 'notif-btn';
+  }
+}
+
+async function requestNotifications() {
+  if (!('Notification' in window)) {
+    showToast('Notifications not supported in this browser.');
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    showToast('Notifications blocked — enable in browser settings.');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  updateNotifBtn(perm);
+  if (perm === 'granted') {
+    showToast('✓ Alerts enabled! You\'ll be notified 30 min before each prayer.');
+  }
+}
+
+function fireNotif(title, body, icon) {
+  if (Notification.permission !== 'granted') return;
+  try {
+    new Notification(title, { body, icon: '🌙', silent: false });
+  } catch(e) {}
+}
+
+function checkNotifications(row, now) {
+  if (Notification.permission !== 'granted') return;
+
+  const sehriTime = parseTime(row.sehri, now);
+  const iftarTime = parseTime(row.iftar, now);
+  const msToSehri = sehriTime - now;
+  const msToIftar = iftarTime - now;
+  const todayKey = row.date;
+
+  // 30-min warning for Sehri
+  if (msToSehri > 0 && msToSehri <= NOTIF_LEAD) {
+    const key = `sehri-30-${todayKey}`;
+    if (!notifFired.has(key)) {
+      notifFired.add(key);
+      const mins = Math.round(msToSehri / 60000);
+      fireNotif('🌙 Sehri in ' + mins + ' minutes', `Sehri time is ${row.sehri} — eat before Fajr!`);
+    }
+  }
+
+  // At Sehri time
+  if (msToSehri <= 0 && msToSehri > -60000) {
+    const key = `sehri-now-${todayKey}`;
+    if (!notifFired.has(key)) {
+      notifFired.add(key);
+      fireNotif('🌙 Sehri Time!', `It\'s ${row.sehri} — Sehri is now! Fajr begins shortly.`);
+    }
+  }
+
+  // 30-min warning for Iftar
+  if (msToIftar > 0 && msToIftar <= NOTIF_LEAD) {
+    const key = `iftar-30-${todayKey}`;
+    if (!notifFired.has(key)) {
+      notifFired.add(key);
+      const mins = Math.round(msToIftar / 60000);
+      fireNotif('🌅 Iftar in ' + mins + ' minutes', `Iftar time is ${row.iftar} — prepare to break your fast!`);
+    }
+  }
+
+  // At Iftar time
+  if (msToIftar <= 0 && msToIftar > -60000) {
+    const key = `iftar-now-${todayKey}`;
+    if (!notifFired.has(key)) {
+      notifFired.add(key);
+      fireNotif('🌅 Iftar Time!', `It\'s ${row.iftar} — time to break your fast! Ramadan Mubarak 🌙`);
+    }
+  }
+}
+// ───────────────────────────────────────────────────────────
+
 createStars();
 buildScheduleRows(getToday());
-tick();
-setInterval(tick, 1000);
+
+// Check notification permission on load
+if ('Notification' in window) updateNotifBtn(Notification.permission);
+
+function tickFull() {
+  tick();
+  const idx = getToday();
+  if (idx !== null) checkNotifications(schedule[idx], new Date());
+}
+
+tickFull();
+setInterval(tickFull, 1000);
 </script>
 </body>
 </html>
